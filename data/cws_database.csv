@@ -1,4 +1,3 @@
-room_code,name,capacity,floor,access_desc,is_booked,occupants
-SGLC-101,,10,1Akses Utama0,0
-SGLC-205,Ruang Bromo,5,2Akses Tengah0,0
-SGLC-309,Ruang Semeru,25,3Akses Khusus0,0
+room_code,name,capacity,floor,is_booked,occupants
+SGLC-301,,20,3,0,0
+SGLC-302,,10,3,0,0
