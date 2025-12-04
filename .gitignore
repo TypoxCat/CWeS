@@ -40,4 +40,5 @@
 # debug information files
 *.dwo
 
-config/*
+#this should be added
+# config/*

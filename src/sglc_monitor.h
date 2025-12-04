@@ -111,6 +111,7 @@ private:
     vector<CoWorkingSpace> spaces;
     vector<HourlyData> history_data;
     UserRole current_user_role;
+    string last_saved_date; // Untuk melacak kapan terakhir disimpan
 
     // Menu & Login
     void login();
@@ -129,8 +130,10 @@ private:
     string get_today_date();
     int count_history_files();
     void merge_history_files();
-
-    // CWS Monitor
+    void save_daily_history();
+    void check_and_merge_history();
+    void load_all_history_data();
+    double get_prediction_for_hour_day(int hour, int day_of_week);
     void check_availability();
     void update_occupancy_manual();
     void display_all_details();

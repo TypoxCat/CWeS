@@ -10,6 +10,9 @@
 #include <fstream>   
 #include <limits>
 #include <sstream>
+#include <cstdio>
+#include <map>
+#include <tuple>
 
 
 using namespace std;
@@ -132,23 +135,26 @@ string CoWorkingSpace::get_status() const {
 // =======================================================
 
 // Constructor SGLCMonitor (Inisialisasi)
-SGLCMonitor::SGLCMonitor() : current_user_role(UNKNOWN) {
+SGLCMonitor::SGLCMonitor() : current_user_role(UNKNOWN), last_saved_date("") {
     // Inisialisasi data ruang
     load_spaces_from_csv();
-    // spaces.push_back(CoWorkingSpace("SGLC-101", "Ruang Merapi", 10, 1, "Akses Utama"));
-    // spaces.push_back(CoWorkingSpace("SGLC-205", "Ruang Bromo", 5, 2, "Akses Tengah"));
-    // spaces.push_back(CoWorkingSpace("SGLC-309", "Ruang Semeru", 25, 3, "Akses Khusus"));
-
-    // Data dummy historis
+    
+    // Set last saved date
+    last_saved_date = get_today_date();
+    
+    // Data dummy historis (untuk demo)
     for (int i = 0; i < 10; ++i) {
         HourlyData h;
         h.hour = 10 + (i % 8); // Jam 10-17
-        h.day_of_week = 1 + (i % 5); // Senin-Jumat
+        h.day_of_week = 1 + (i % 5); // Hari 1-5 (Senin-Jumat)
         h.room_code = (i % 2 == 0) ? "SGLC-101" : "SGLC-205";
         h.total_occupants = 3 + (i % 5);
         h.entry_count = 1; 
         history_data.push_back(h);
     }
+    
+    // Cek dan merge history jika diperlukan
+    check_and_merge_history();
     
     srand(static_cast<unsigned int>(time(0)));
 }
@@ -168,12 +174,12 @@ int SGLCMonitor::get_current_hour() const {
 int SGLCMonitor::get_current_day() const {
     time_t now = time(0);
     struct tm* ltm = localtime(&now);
-    // tm_wday: 0=Minggu, 1=Senin, ..., 6=Sabtu
+    // tm_wday: 0=Senin, ..., 4=Jumat
     return ltm->tm_wday; 
 }
 
 string SGLCMonitor::get_day_name(int day) const {
-    static const char* days[] = {"Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"};
+    static const char* days[] = { "Senin", "Selasa", "Rabu", "Kamis", "Jumat"};
     if (day >= 0 && day <= 6) {
         return days[day];
     }
@@ -311,6 +317,8 @@ void SGLCMonitor::check_availability() {
         cout << "[ERROR] Input ukuran grup tidak valid." << endl;
         return;
     }
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
     
     int available_count = 0;
     cout << "\nRuangan yang tersedia untuk grup " << group_size << " orang:" << endl;
@@ -412,6 +420,7 @@ void SGLCMonitor::display_all_details() {
         cout << "\n[" << i + 1 << ". Ruang " << spaces[i].get_room_code() << "]" << endl;
         spaces[i].display_details();
     }
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
 
 // F-04: Lihat Prediksi Harian
@@ -419,8 +428,8 @@ void SGLCMonitor::display_daily_prediction() {
     cout << "\n--- F-04: PREDIKSI OKUPANSI HARIAN ---\n";
 
     int day;
-    cout << "Pilih hari (0=Minggu ... 6=Sabtu): ";
-    // Menambahkan input validation yang lebih baik
+    cout << "Pilih hari (0=Senin ... 4=Jumat): ";
+    
     if (!(cin >> day)) {
         cin.clear();
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
@@ -428,27 +437,25 @@ void SGLCMonitor::display_daily_prediction() {
         return;
     }
 
-    if (day < 0 || day > 6) {
+    if (day < 0 || day > 4) {
         cout << "[ERROR] Hari tidak valid.\n";
         return;
     }
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    // Load all available history data from CSV files
+    load_all_history_data();
 
     cout << "\nPrediksi untuk hari: " << get_day_name(day) << "\n";
+    cout << "Prediksi berdasarkan rata-rata dari semua data historis:\n";
 
     for (int hour = 8; hour <= 20; hour++) {
-        int sum = 0, count = 0;
-
-        for (const HourlyData &h : history_data) {
-            if (h.day_of_week == day && h.hour == hour) {
-                sum += h.total_occupants;
-                count++;
-            }
-        }
-
-        if (count == 0)
+        double prediction = get_prediction_for_hour_day(hour, day);
+        if (prediction < 0) {
             cout << "Jam " << hour << ": Data tidak cukup.\n";
-        else
-            cout << "Jam " << hour << ": " << (sum / count) << " orang (rata-rata dari " << count << " data)\n";
+        } else {
+            cout << "Jam " << hour << ": " << (int)prediction << " orang (prediksi rata-rata)\n";
+        }
     }
 }
 
@@ -459,38 +466,9 @@ void SGLCMonitor::handle_file_io() {
         return;
     }
 
-    ensure_history_folder();
-    string filename = "../history/" + get_today_date() + ".csv";
-
-    bool file_exists = false;
-    ifstream testFile(filename);
-    if (testFile.good()) file_exists = true;
-    testFile.close();
-
-    ofstream outFile(filename, ios::app); // append mode
-
-    if (!file_exists) {
-        outFile << "Ruang,Hari,Jam,Okupansi,Entry\n";
-    }
-
-    for (const HourlyData& h : history_data) {
-        outFile << h.room_code << ","
-                << get_day_name(h.day_of_week) << ","
-                << h.hour << ","
-                << h.total_occupants << ","
-                << (h.entry_count > 0 ? "MASUK" : "KELUAR")
-                << "\n";
-    }
-
-    outFile.close();
-    cout << "[SUCCESS] Data riwayat disimpan ke " << filename << endl;
-
-    // Check jumlah file
-    int total_files = count_history_files();
-    if (total_files > 30) {
-        cout << "[INFO] Total file melebihi 30 hari. Menggabungkan file..." << endl;
-        merge_history_files();
-    }
+    cout << "\n--- F-05: SIMPAN DATA RIWAYAT (MANUAL) ---" << endl;
+    save_daily_history();
+    cout << "[SUCCESS] Data riwayat telah disimpan secara manual." << endl;
 }
 
 
@@ -509,17 +487,241 @@ string SGLCMonitor::get_today_date() {
 
 int SGLCMonitor::count_history_files() {
     int count = 0;
-    system("ls history/*.csv 2>/dev/null | wc -l > .tmp_count");
-    ifstream f(".tmp_count");
-    f >> count;
-    f.close();
+    FILE* pipe = popen("ls history/*.csv 2>/dev/null | wc -l", "r");
+    if (pipe) {
+        char buffer[128];
+        if (fgets(buffer, sizeof(buffer), pipe) != NULL) {
+            count = atoi(buffer);
+        }
+        pclose(pipe);
+    }
     return count;
 }
 
+// Simpan data riwayat harian ke CSV
+void SGLCMonitor::save_daily_history() {
+    ensure_history_folder();
+    string filename = "../history/" + get_today_date() + ".csv";
+
+    bool file_exists = false;
+    ifstream testFile(filename);
+    if (testFile.good()) file_exists = true;
+    testFile.close();
+
+    ofstream outFile(filename, ios::app); // append mode
+
+    if (!file_exists) {
+        outFile << "room_code,day_of_week,hour,total_occupants,entry_count\n";
+    }
+
+    for (const HourlyData& h : history_data) {
+        outFile << h.room_code << ","
+                << h.day_of_week << ","
+                << h.hour << ","
+                << h.total_occupants << ","
+                << h.entry_count
+                << "\n";
+    }
+
+    outFile.close();
+    cout << "[INFO] Data riwayat disimpan ke " << filename << endl;
+}
+
+// Load semua data historis dari semua CSV di folder history
+void SGLCMonitor::load_all_history_data() {
+    vector<HourlyData> all_history;
+    
+    ensure_history_folder();
+    system("ls ../history/*.csv > /tmp/history_list.txt 2>/dev/null");
+    
+    ifstream file_list("/tmp/history_list.txt");
+    string filepath;
+    
+    while (getline(file_list, filepath)) {
+        if (filepath.empty()) continue;
+        
+        // Skip master file jika ada, akan diproses tersendiri
+        if (filepath.find("master") != string::npos) continue;
+        
+        ifstream history_file(filepath);
+        string line;
+        getline(history_file, line); // skip header
+        
+        while (getline(history_file, line)) {
+            if (line.empty()) continue;
+            
+            stringstream ss(line);
+            string room_code, day_s, hour_s, occ_s, entry_s;
+            
+            if (getline(ss, room_code, ',') &&
+                getline(ss, day_s, ',') &&
+                getline(ss, hour_s, ',') &&
+                getline(ss, occ_s, ',') &&
+                getline(ss, entry_s, '\n')) {
+                
+                try {
+                    HourlyData h;
+                    h.room_code = room_code;
+                    h.day_of_week = stoi(day_s);
+                    h.hour = stoi(hour_s);
+                    h.total_occupants = stoi(occ_s);
+                    h.entry_count = stoi(entry_s);
+                    
+                    all_history.push_back(h);
+                } catch (...) {
+                    // Skip invalid lines
+                }
+            }
+        }
+        history_file.close();
+    }
+    file_list.close();
+    
+    // Load master file jika ada
+    ifstream master_file("../history/history_prediction_master.csv");
+    if (master_file.good()) {
+        string line;
+        getline(master_file, line); // skip header
+        
+        while (getline(master_file, line)) {
+            if (line.empty()) continue;
+            
+            stringstream ss(line);
+            string room_code, day_s, hour_s, occ_s, entry_s;
+            
+            if (getline(ss, room_code, ',') &&
+                getline(ss, day_s, ',') &&
+                getline(ss, hour_s, ',') &&
+                getline(ss, occ_s, ',') &&
+                getline(ss, entry_s, '\n')) {
+                
+                try {
+                    HourlyData h;
+                    h.room_code = room_code;
+                    h.day_of_week = stoi(day_s);
+                    h.hour = stoi(hour_s);
+                    h.total_occupants = stoi(occ_s);
+                    h.entry_count = stoi(entry_s);
+                    
+                    all_history.push_back(h);
+                } catch (...) {
+                    // Skip invalid lines
+                }
+            }
+        }
+        master_file.close();
+    }
+    
+    history_data = all_history;
+}
+
+// Get prediksi untuk jam dan hari tertentu berdasarkan data historis
+double SGLCMonitor::get_prediction_for_hour_day(int hour, int day_of_week) {
+    int sum = 0, count = 0;
+    
+    for (const HourlyData& h : history_data) {
+        if (h.day_of_week == day_of_week && h.hour == hour) {
+            sum += h.total_occupants;
+            count++;
+        }
+    }
+    
+    if (count == 0) return -1; // Tidak ada data
+    return (double)sum / count;
+}
+
+// Periksa dan merge history files jika sudah lebih dari 30 hari
+void SGLCMonitor::check_and_merge_history() {
+    int total_files = count_history_files();
+    if (total_files > 30) {
+        cout << "[INFO] Data historis melebihi 30 file. Membuat master file dan menggabungkan..." << endl;
+        merge_history_files();
+    }
+}
+
 void SGLCMonitor::merge_history_files() {
-    system("cat history/*.csv > history/history_prediction_master.csv");
-    system("rm history/*.csv");
-    cout << "[INFO] Semua file harian digabung ke history_prediction_master.csv\n";
+    ensure_history_folder();
+    
+    // Baca semua file harian dan aggregasi ke master
+    vector<HourlyData> aggregated;
+    
+    system("ls ../history/*.csv > /tmp/history_list.txt 2>/dev/null");
+    ifstream file_list("/tmp/history_list.txt");
+    string filepath;
+    
+    while (getline(file_list, filepath)) {
+        if (filepath.empty() || filepath.find("master") != string::npos) continue;
+        
+        ifstream history_file(filepath);
+        string line;
+        getline(history_file, line); // skip header
+        
+        while (getline(history_file, line)) {
+            if (line.empty()) continue;
+            
+            stringstream ss(line);
+            string room_code, day_s, hour_s, occ_s, entry_s;
+            
+            if (getline(ss, room_code, ',') &&
+                getline(ss, day_s, ',') &&
+                getline(ss, hour_s, ',') &&
+                getline(ss, occ_s, ',') &&
+                getline(ss, entry_s, '\n')) {
+                
+                try {
+                    HourlyData h;
+                    h.room_code = room_code;
+                    h.day_of_week = stoi(day_s);
+                    h.hour = stoi(hour_s);
+                    h.total_occupants = stoi(occ_s);
+                    h.entry_count = stoi(entry_s);
+                    
+                    aggregated.push_back(h);
+                } catch (...) {
+                    // Skip invalid lines
+                }
+            }
+        }
+        history_file.close();
+    }
+    file_list.close();
+    
+    // Hitung rata-rata untuk setiap kombinasi room_code, day, hour
+    map<tuple<string, int, int>, pair<int, int>> averages; // (sum, count)
+    
+    for (const auto& h : aggregated) {
+        auto key = make_tuple(h.room_code, h.day_of_week, h.hour);
+        averages[key].first += h.total_occupants;
+        averages[key].second += 1;
+    }
+    
+    // Tulis master file
+    ofstream master("../history/history_prediction_master.csv");
+    master << "room_code,day_of_week,hour,total_occupants,entry_count\n";
+    
+    for (const auto& entry : averages) {
+        string room_code = std::get<0>(entry.first);
+        int day = std::get<1>(entry.first);
+        int hour = std::get<2>(entry.first);
+        int sum = entry.second.first;
+        int count = entry.second.second;
+        int avg = sum / count;
+        
+        master << room_code << ","
+               << day << ","
+               << hour << ","
+               << avg << ","
+               << "1\n";
+    }
+    master.close();
+    
+    cout << "[SUCCESS] Master file dibuat: ../history/history_prediction_master.csv\n";
+    
+    // Hapus file-file harian yang sudah di-merge (kecuali file hari ini)
+    string today = get_today_date();
+    system(("find ../history -name '*.csv' -type f ! -name '*master*' ! -name '" + today + "*' -delete").c_str());
+    
+    cout << "[INFO] File harian lama telah dihapus. Master file akan digunakan untuk prediksi.\n";
 }
 
 
@@ -567,6 +769,16 @@ void SGLCMonitor::run_menu() {
     
     int choice = -1;
     while (true) { // Loop utama
+        // Check apakah sudah ganti hari (midnight save)
+        string current_date = get_today_date();
+        if (current_date != last_saved_date) {
+            cout << "[INFO] Sudah melewati tengah malam. Menyimpan data otomatis..." << endl;
+            save_daily_history();
+            check_and_merge_history();
+            last_saved_date = current_date;
+            cout << "[SUCCESS] Data otomatis tersimpan untuk " << last_saved_date << endl << endl;
+        }
+        
         display_menu();
         
         if (!(cin >> choice)) {
@@ -585,6 +797,8 @@ void SGLCMonitor::run_menu() {
                 cin.ignore(numeric_limits<streamsize>::max(), '\n'); 
                 cin.get(confirm);
                 if (confirm == 'y' || confirm == 'Y') {
+                    // Simpan data sebelum keluar
+                    save_daily_history();
                     cout << "\nTerima kasih telah menggunakan SGLC Monitor. Sampai jumpa!" << endl;
                     break;
                 } else { //apapun itu selain y login ulg

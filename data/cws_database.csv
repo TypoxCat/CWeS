@@ -1,3 +1,7 @@
 room_code,name,capacity,floor,is_booked,occupants
-SGLC-301,,20,3,0,0
-SGLC-302,,10,3,0,0
+SGLC-101,Ruang Merapi,10,1,1,0
+SGLC-205,Ruang Bromo,5,2,0,3
+SGLC-309,Ruang Semeru,25,3,0,12
+SGLC-401,Ruang Everest,15,4,0,7
+SGLC-502,Ruang Kilimanjaro,20,5,0,10
+SGLC-302,Ruang Pupul,20,3,0,0
