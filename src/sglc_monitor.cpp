@@ -284,14 +284,14 @@ void SGLCMonitor::display_menu() {
     // --- FITUR CWS MONITOR (F-01 s/d F-06) ---
     cout << "--- MONITOR ---" << endl;
     cout << "(1) F-01: Cek Ketersediaan Ruang" << endl;
-    cout << "(2) F-03: Lihat Detail Ruang" << endl; 
-    cout << "(3) F-04: Lihat Prediksi Harian" << endl;
-    cout << "(4) F-06: Masuk/Keluar" << endl;
+    cout << "(2) F-02: Lihat Detail Ruang" << endl; 
+    cout << "(3) F-03: Lihat Prediksi Harian" << endl;
+    cout << "(4) F-04: Masuk/Keluar" << endl;
     
     if (current_user_role == ADMIN) {
         cout << "--- Fitur ADMIN ---" << endl;
-        cout << "(5) F-02: Kelola Okupansi & Status Booking" << endl; 
-        cout << "(6) F-05: Simpan Data Riwayat (File I/O)" << endl; 
+        cout << "(5) F-05: Kelola Okupansi & Status Booking" << endl; 
+        cout << "(6) F-06: Simpan Data Riwayat (File I/O)" << endl; 
         // Ubah nama menu (7)
         cout << "(7) Kelola Database Ruang (Add/Remove/Edit CSV)" << endl; 
 
@@ -340,7 +340,7 @@ void SGLCMonitor::check_availability() {
     }
 }
 
-// F-02: Kelola Okupansi & Status Booking (ADMIN) - Diperbarui
+// F-05: Kelola Okupansi & Status Booking (ADMIN) - Diperbarui
 void SGLCMonitor::update_occupancy_manual() {
     if (current_user_role != ADMIN) {
         cout << "[DENIED] Hanya Administrator yang dapat mengakses fitur ini." << endl;
@@ -348,7 +348,7 @@ void SGLCMonitor::update_occupancy_manual() {
     }
 
     int choice;
-    cout << "\n--- F-02: KELOLA OKUPANSI & STATUS BOOKING (ADMIN) ---" << endl;
+    cout << "\n--- F-05: KELOLA OKUPANSI & STATUS BOOKING (ADMIN) ---" << endl;
     for (size_t i = 0; i < spaces.size(); ++i) {
         cout << "(" << i + 1 << ") " << spaces[i].get_room_code() 
              << " (Okupansi: " << spaces[i].get_occupants() << " / " << spaces[i].get_capacity() 
@@ -389,7 +389,7 @@ void SGLCMonitor::update_occupancy_manual() {
         }
 
         if (selected_space.is_booked()) {
-            cout << "[WARNING] Ruangan ini sudah di-BOOKED. Okupansi diatur, tetapi status BOOKED diprioritaskan di F-01/F-03." << endl;
+            cout << "[WARNING] Ruangan ini sudah di-BOOKED." << endl;
         }
 
         int change = new_occupants - selected_space.get_occupants();
@@ -413,9 +413,9 @@ void SGLCMonitor::update_occupancy_manual() {
     }
 }
 
-// F-03: Lihat Detail Ruang
+// F-02: Lihat Detail Ruang
 void SGLCMonitor::display_all_details() {
-    cout << "\n--- F-03: LIHAT DETAIL RUANG ---" << endl;
+    cout << "\n--- F-02: LIHAT DETAIL RUANG ---" << endl;
     for (size_t i = 0; i < spaces.size(); ++i) { 
         cout << "\n[" << i + 1 << ". Ruang " << spaces[i].get_room_code() << "]" << endl;
         spaces[i].display_details();
@@ -423,10 +423,9 @@ void SGLCMonitor::display_all_details() {
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
 
-// F-04: Lihat Prediksi Harian
+// F-03: Lihat Prediksi Harian
 void SGLCMonitor::display_daily_prediction() {
-    cout << "\n--- F-04: PREDIKSI OKUPANSI HARIAN ---\n";
-
+    cout << "\n--- F-03: PREDIKSI OKUPANSI HARIAN ---\n";
     int day;
     cout << "Pilih hari (0=Senin ... 4=Jumat): ";
     
@@ -459,14 +458,14 @@ void SGLCMonitor::display_daily_prediction() {
     }
 }
 
-// F-05: Simpan Data Riwayat (ADMIN)
+// F-06: Simpan Data Riwayat (ADMIN)
 void SGLCMonitor::handle_file_io() {
     if (current_user_role != ADMIN) {
         cout << "[DENIED] Hanya Administrator yang dapat mengakses fitur ini." << endl;
         return;
     }
 
-    cout << "\n--- F-05: SIMPAN DATA RIWAYAT (MANUAL) ---" << endl;
+    cout << "\n--- F-06: SIMPAN DATA RIWAYAT (MANUAL) ---" << endl;
     save_daily_history();
     cout << "[SUCCESS] Data riwayat telah disimpan secara manual." << endl;
 }
@@ -726,11 +725,11 @@ void SGLCMonitor::merge_history_files() {
 }
 
 
-// F-06: Simulasi Masuk/Keluar
+// F-04: Simulasi Masuk/Keluar
 void SGLCMonitor::simulate_activity() {
     int choice;
     int action;
-    cout << "\n--- F-06: SIMULASI MASUK/KELUAR RUANG ---" << endl;
+    cout << "\n--- F-04: SIMULASI MASUK/KELUAR RUANG ---" << endl;
     for (size_t i = 0; i < spaces.size(); ++i) {
         cout << "(" << i + 1 << ") " << spaces[i].get_room_code() << " (" << spaces[i].get_name() << ") - Okupansi: " << spaces[i].get_occupants() << endl;
     }
