@@ -473,7 +473,7 @@ void SGLCMonitor::handle_file_io() {
 
 
 void SGLCMonitor::ensure_history_folder() {
-    system("mkdir -p history");
+    system("mkdir -p ../history");
 }
 
 string SGLCMonitor::get_today_date() {
@@ -487,7 +487,7 @@ string SGLCMonitor::get_today_date() {
 
 int SGLCMonitor::count_history_files() {
     int count = 0;
-    FILE* pipe = popen("ls history/*.csv 2>/dev/null | wc -l", "r");
+    FILE* pipe = popen("ls ../history/*.csv 2>/dev/null | wc -l", "r");
     if (pipe) {
         char buffer[128];
         if (fgets(buffer, sizeof(buffer), pipe) != NULL) {
@@ -508,12 +508,13 @@ void SGLCMonitor::save_daily_history() {
     if (testFile.good()) file_exists = true;
     testFile.close();
 
-    ofstream outFile(filename, ios::app); // append mode
+    // Tulis dalam mode overwrite (bukan append) untuk mencegah duplikasi
+    ofstream outFile(filename, ios::trunc); // overwrite mode
 
-    if (!file_exists) {
-        outFile << "room_code,day_of_week,hour,total_occupants,entry_count\n";
-    }
+    // Tulis header
+    outFile << "room_code,day_of_week,hour,total_occupants,entry_count\n";
 
+    // Tulis semua data dari history_data
     for (const HourlyData& h : history_data) {
         outFile << h.room_code << ","
                 << h.day_of_week << ","
